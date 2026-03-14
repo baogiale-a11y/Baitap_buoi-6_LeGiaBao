@@ -73,14 +73,12 @@ router.post('/change-password', checkLogin, [
     try {
         let { oldPassword, newPassword } = req.body;
         let user = req.user; 
-
-        // Kiểm tra mật khẩu cũ có khớp không
         let isMatch = bcrypt.compareSync(oldPassword, user.password);
         if (!isMatch) {
             return res.status(400).send({ message: "Mật khẩu cũ không chính xác" });
         }
 
-        // Mã hóa và lưu mật khẩu mới
+
         user.password = bcrypt.hashSync(newPassword, 10);
         await user.save();
 
