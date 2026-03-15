@@ -4,8 +4,12 @@ let userController = require('../controllers/users')
 let { RegisterValidator, validatedResult } = require('../utils/validator')
 let bcrypt = require('bcrypt')
 let jwt = require('jsonwebtoken')
-const { check } = require('express-validator')
+const { check, body, validationResult } = require('express-validator')
+const fs = require('fs')
+const path = require('path')
 const { checkLogin } = require('../utils/authHandler')
+
+const privateKey = fs.readFileSync(path.join(__dirname, '../private.key'), 'utf8');
 
 router.post('/register', RegisterValidator, validatedResult, async function (req, res, next) {
     let { username, password, email } = req.body;
@@ -29,8 +33,9 @@ router.post('/login', async function (req, res, next) {
             await user.save();
             let token = jwt.sign({
                 id: user._id,
-            }, 'secret', {
-                expiresIn: '1h'
+            }, privateKey, {
+                algorithm: 'RS256',
+                expiresIn: process.env.JWT_EXPIRES_IN || '1h'
             })
             res.send(token)
         } else {
@@ -53,6 +58,33 @@ router.post('/login', async function (req, res, next) {
 })
 router.get('/me',checkLogin, function (req,res,next) {
     res.send(req.user)
+})
+
+router.post('/change-password', checkLogin, [
+    body('oldPassword').notEmpty().withMessage('Vui lòng nhập mật khẩu cũ'),
+    body('newPassword').isLength({ min: 6 }).withMessage('Mật khẩu mới phải có ít nhất 6 ký tự')
+], async function (req, res, next) {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        return res.status(400).json({ errors: errors.array() });
+    }
+
+    try {
+        let { oldPassword, newPassword } = req.body;
+        let user = req.user; 
+        let isMatch = bcrypt.compareSync(oldPassword, user.password);
+        if (!isMatch) {
+            return res.status(400).send({ message: "Mật khẩu cũ không chính xác" });
+        }
+
+        // Gán mật khẩu mới, pre-save hook trong schema sẽ tự động hash
+        user.password = newPassword;
+        await user.save();
+
+        res.send({ message: "Đổi mật khẩu thành công" });
+    } catch (error) {
+        res.status(500).send({ message: "Lỗi server" });
+    }
 })
 
 module.exports = router;

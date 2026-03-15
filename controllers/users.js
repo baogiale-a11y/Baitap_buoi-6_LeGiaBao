@@ -22,13 +22,9 @@ module.exports = {
         })
     },
     FindUserById: async function (id) {
-        try {
-            return await userModel.findOne({
-                _id: id,
-                isDeleted: false
-            })
-        } catch (error) {
-            return false
-        }
+        return await userModel.findOne({
+            _id: id,
+            isDeleted: false
+        });
     }
 }

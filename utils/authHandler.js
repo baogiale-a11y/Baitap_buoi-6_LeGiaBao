@@ -8,25 +8,23 @@ const publicKey = fs.readFileSync(path.join(__dirname, '../public.key'), 'utf8')
 module.exports = {
     checkLogin: async function (req, res, next) {
         try {
-            let token = req.headers.authorization;
-            if (!token || !token.startsWith('Bearer')) {
-                res.status(404).send("ban chua dang nhap")
+            const authHeader = req.headers.authorization;
+            if (!authHeader || !authHeader.startsWith('Bearer ')) {
+                return res.status(401).send({ message: "Yêu cầu đăng nhập. Token không được cung cấp." });
             }
-            token = token.split(" ")[1];
+            const token = authHeader.split(" ")[1];
+
+            // jwt.verify tự động xử lý lỗi token hết hạn
             let result = jwt.verify(token, publicKey, { algorithms: ['RS256'] });
-            if (result.exp * 1000 > Date.now()) {
-                let user = await userController.FindUserById(result.id);
-                if (user) {
-                    req.user = user
-                    next()
-                } else {
-                    res.status(404).send("ban chua dang nhap")
-                }
+            let user = await userController.FindUserById(result.id);
+            if (user) {
+                req.user = user;
+                next();
             } else {
-                res.status(404).send("ban chua dang nhap")
+                res.status(401).send({ message: "Không tìm thấy người dùng tương ứng với token." });
             }
         } catch (error) {
-            res.status(404).send("ban chua dang nhap")
+            res.status(401).send({ message: "Token không hợp lệ hoặc đã hết hạn." });
         }
     }
 }
